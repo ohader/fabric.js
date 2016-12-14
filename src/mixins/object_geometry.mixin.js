@@ -244,6 +244,14 @@
           return this.minScaleLimit;
         }
       }
+      if (this.maxScaleLimit !== null && Math.abs(value) > this.maxScaleLimit) {
+        if (value < 0) {
+          return -this.maxScaleLimit;
+        }
+        else {
+          return this.maxScaleLimit;
+        }
+      }
       return value;
     },
 

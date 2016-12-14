@@ -614,6 +614,12 @@
     minScaleLimit:            0.01,
 
     /**
+     * Maximum allowed scale value of an object
+     * @type Number
+     */
+    maxScaleLimit:            null,
+
+    /**
      * When set to `false`, an object can not be selected for modification (using either point-click-based or group-based selection).
      * But events still fire on it.
      * @type Boolean
