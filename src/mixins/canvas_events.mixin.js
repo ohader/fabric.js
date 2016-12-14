@@ -663,25 +663,39 @@
           actionPerformed = false;
 
       if (action === 'rotate') {
-        (actionPerformed = this._rotateObject(x, y)) && this._fire('rotating', target, e);
+        if (this._triggerWithResult('before:rotating', target, e, transform) !== false) {
+          (actionPerformed = this._rotateObject(x, y)) && this._fire('rotating', target, e);
+        }
       }
       else if (action === 'scale') {
-        (actionPerformed = this._onScale(e, transform, x, y)) && this._fire('scaling', target, e);
+        if (this._triggerWithResult('before:scaling', target, e, transform) !== false) {
+          (actionPerformed = this._onScale(e, transform, x, y)) && this._fire('scaling', target, e);
+        }
       }
       else if (action === 'scaleX') {
-        (actionPerformed = this._scaleObject(x, y, 'x')) && this._fire('scaling', target, e);
+        if (this._triggerWithResult('before:scaling', target, e, transform) !== false) {
+          (actionPerformed = this._scaleObject(x, y, 'x')) && this._fire('scaling', target, e);
+        }
       }
       else if (action === 'scaleY') {
-        (actionPerformed = this._scaleObject(x, y, 'y')) && this._fire('scaling', target, e);
+        if (this._triggerWithResult('before:scaling', target, e, transform) !== false) {
+          (actionPerformed = this._scaleObject(x, y, 'y')) && this._fire('scaling', target, e);
+        }
       }
       else if (action === 'skewX') {
-        (actionPerformed = this._skewObject(x, y, 'x')) && this._fire('skewing', target, e);
+        if (this._triggerWithResult('before:skewing', target, e, transform) !== false) {
+          (actionPerformed = this._skewObject(x, y, 'x')) && this._fire('skewing', target, e);
+        }
       }
       else if (action === 'skewY') {
-        (actionPerformed = this._skewObject(x, y, 'y')) && this._fire('skewing', target, e);
+        if (this._triggerWithResult('before:skewing', target, e, transform) !== false) {
+          (actionPerformed = this._skewObject(x, y, 'y')) && this._fire('skewing', target, e);
+        }
       }
       else {
-        actionPerformed = this._translateObject(x, y);
+        if (this._triggerWithResult('before:moving', target, e, transform) !== false) {
+          (actionPerformed = this._translateObject(x, y));
+        }
         if (actionPerformed) {
           this._fire('moving', target, e);
           this.setCursor(target.moveCursor || this.moveCursor);
@@ -696,6 +710,17 @@
     _fire: function(eventName, target, e) {
       this.fire('object:' + eventName, { target: target, e: e });
       target.fire(eventName, { e: e });
+    },
+
+    /**
+     * @private
+     * @return {Boolean} If false, some event listener issued to stop processing
+     */
+    _triggerWithResult: function(eventName, target, e, transform) {
+      return (
+          this.triggerWithResult('object:' + eventName, { target: target, e: e, transform: transform }) !== false
+          && target.triggerWithResult(eventName, { e: e, transform: transform }) !== false
+      );
     },
 
     /**

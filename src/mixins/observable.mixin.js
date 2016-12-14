@@ -111,6 +111,47 @@
   }
 
   /**
+   * Triggers an event with an optional options object and stops
+   * at the first event listener that returns false. Can be used
+   * for pre-processing events and deny actual execution.
+   *
+   * @example
+   * observable.on('before:moving', function(event) {
+   *  var outOfBounds = customFunctionLogic();
+   *  if (outOfBounds) {
+   *    // stops all further listeners and return false to caller
+   *    return false;
+   *  }
+   *  // any other return value than false will continue
+   *  return true;
+   * });
+   * @memberOf fabric.Observable
+   * @param {String} eventName Event name to fire
+   * @param {Object} [options] Options object
+   * @return {Boolean} Whether event listeners succeeded
+   */
+  function triggerWithResult(eventName, options) {
+    // nothing to be executed
+    if (!this.__eventListeners || !this.__eventListeners[eventName]) {
+      return true;
+    }
+    // filter real callbacks
+    var listenersForEvent = this.__eventListeners[eventName].filter(
+      function(value) {
+        return (typeof value === 'function');
+      }
+    );
+    // iterate over all event listeners
+    for (var i = 0, len = listenersForEvent.length; i < len; i++) {
+      // break, if one listener returns false
+      if (listenersForEvent[i].call(this, options || { }) === false) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
    * @namespace fabric.Observable
    * @tutorial {@link http://fabricjs.com/fabric-intro-part-2#events}
    * @see {@link http://fabricjs.com/events|Events demo}
@@ -122,6 +163,7 @@
 
     on: observe,
     off: stopObserving,
-    trigger: fire
+    trigger: fire,
+    triggerWithResult: triggerWithResult
   };
 })();
