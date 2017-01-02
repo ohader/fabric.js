@@ -38,11 +38,6 @@
           continue;
         }
 
-        if (this.get('lockUniScaling') &&
-           (i === 'mt' || i === 'mr' || i === 'mb' || i === 'ml')) {
-          continue;
-        }
-
         lines = this._getImageLines(this.oCoords[i].corner);
 
         // debugging
