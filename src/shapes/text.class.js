@@ -49,7 +49,6 @@
    * @see {@link fabric.Text#initialize} for constructor definition
    */
   fabric.Text = fabric.util.createClass(fabric.Object, /** @lends fabric.Text.prototype */ {
-
     /**
      * Properties which when set cause object to change dimensions
      * @type Object

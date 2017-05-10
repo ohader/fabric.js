@@ -88,7 +88,7 @@
         path = [];
       }
 
-      var fromArray = _toString.call(path) === '[object Array]';
+      var fromArray = Array.isArray(path);
 
       this.path = fromArray
         ? path
