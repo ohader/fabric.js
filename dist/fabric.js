@@ -1,7 +1,7 @@
 /* build: `node build.js modules=ALL exclude=json,gestures minifier=uglifyjs` */
  /*! Fabric.js Copyright 2008-2015, Printio (Juriy Zaytsev, Maxim Chernyak) */
 
-var fabric = fabric || { version: "1.7.11" };
+var fabric = fabric || { version: "1.7.1191" };
 if (typeof exports !== 'undefined') {
   exports.fabric = fabric;
 }
@@ -192,6 +192,47 @@ fabric.devicePixelRatio = fabric.window.devicePixelRatio ||
   }
 
   /**
+   * Triggers an event with an optional options object and stops
+   * at the first event listener that returns false. Can be used
+   * for pre-processing events and deny actual execution.
+   *
+   * @example
+   * observable.on('before:moving', function(event) {
+   *  var outOfBounds = customFunctionLogic();
+   *  if (outOfBounds) {
+   *    // stops all further listeners and return false to caller
+   *    return false;
+   *  }
+   *  // any other return value than false will continue
+   *  return true;
+   * });
+   * @memberOf fabric.Observable
+   * @param {String} eventName Event name to fire
+   * @param {Object} [options] Options object
+   * @return {Boolean} Whether event listeners succeeded
+   */
+  function triggerWithResult(eventName, options) {
+    // nothing to be executed
+    if (!this.__eventListeners || !this.__eventListeners[eventName]) {
+      return true;
+    }
+    // filter real callbacks
+    var listenersForEvent = this.__eventListeners[eventName].filter(
+      function(value) {
+        return (typeof value === 'function');
+      }
+    );
+    // iterate over all event listeners
+    for (var i = 0, len = listenersForEvent.length; i < len; i++) {
+      // break, if one listener returns false
+      if (listenersForEvent[i].call(this, options || { }) === false) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
    * @namespace fabric.Observable
    * @tutorial {@link http://fabricjs.com/fabric-intro-part-2#events}
    * @see {@link http://fabricjs.com/events|Events demo}
@@ -203,7 +244,8 @@ fabric.devicePixelRatio = fabric.window.devicePixelRatio ||
 
     on: observe,
     off: stopObserving,
-    trigger: fire
+    trigger: fire,
+    triggerWithResult: triggerWithResult
   };
 })();
 
@@ -888,7 +930,7 @@ fabric.CommonMethods = {
      * @return {Array} properties Propertie names to include
      */
     populateWithProperties: function(source, destination, properties) {
-      if (properties && Object.prototype.toString.call(properties) === '[object Array]') {
+      if (properties && Array.isArray(properties)) {
         for (var i = 0, len = properties.length; i < len; i++) {
           if (properties[i] in source) {
             destination[properties[i]] = source[properties[i]];
@@ -3280,7 +3322,7 @@ if (typeof console !== 'undefined') {
   }
 
   function normalizeValue(attr, value, parentAttributes, fontSize) {
-    var isArray = Object.prototype.toString.call(value) === '[object Array]',
+    var isArray = Array.isArray(value),
         parsed;
 
     if ((attr === 'fill' || attr === 'stroke') && value === 'none') {
@@ -10937,25 +10979,39 @@ fabric.PatternBrush = fabric.util.createClass(fabric.PencilBrush, /** @lends fab
           actionPerformed = false;
 
       if (action === 'rotate') {
-        (actionPerformed = this._rotateObject(x, y)) && this._fire('rotating', target, e);
+        if (this._triggerWithResult('before:rotating', target, e, transform) !== false) {
+          (actionPerformed = this._rotateObject(x, y)) && this._fire('rotating', target, e);
+        }
       }
       else if (action === 'scale') {
-        (actionPerformed = this._onScale(e, transform, x, y)) && this._fire('scaling', target, e);
+        if (this._triggerWithResult('before:scaling', target, e, transform) !== false) {
+          (actionPerformed = this._onScale(e, transform, x, y)) && this._fire('scaling', target, e);
+        }
       }
       else if (action === 'scaleX') {
-        (actionPerformed = this._scaleObject(x, y, 'x')) && this._fire('scaling', target, e);
+        if (this._triggerWithResult('before:scaling', target, e, transform) !== false) {
+          (actionPerformed = this._scaleObject(x, y, 'x')) && this._fire('scaling', target, e);
+        }
       }
       else if (action === 'scaleY') {
-        (actionPerformed = this._scaleObject(x, y, 'y')) && this._fire('scaling', target, e);
+        if (this._triggerWithResult('before:scaling', target, e, transform) !== false) {
+          (actionPerformed = this._scaleObject(x, y, 'y')) && this._fire('scaling', target, e);
+        }
       }
       else if (action === 'skewX') {
-        (actionPerformed = this._skewObject(x, y, 'x')) && this._fire('skewing', target, e);
+        if (this._triggerWithResult('before:skewing', target, e, transform) !== false) {
+          (actionPerformed = this._skewObject(x, y, 'x')) && this._fire('skewing', target, e);
+        }
       }
       else if (action === 'skewY') {
-        (actionPerformed = this._skewObject(x, y, 'y')) && this._fire('skewing', target, e);
+        if (this._triggerWithResult('before:skewing', target, e, transform) !== false) {
+          (actionPerformed = this._skewObject(x, y, 'y')) && this._fire('skewing', target, e);
+        }
       }
       else {
-        actionPerformed = this._translateObject(x, y);
+        if (this._triggerWithResult('before:moving', target, e, transform) !== false) {
+          (actionPerformed = this._translateObject(x, y));
+        }
         if (actionPerformed) {
           this._fire('moving', target, e);
           this.setCursor(target.moveCursor || this.moveCursor);
@@ -10970,6 +11026,17 @@ fabric.PatternBrush = fabric.util.createClass(fabric.PencilBrush, /** @lends fab
     _fire: function(eventName, target, e) {
       this.fire('object:' + eventName, { target: target, e: e });
       target.fire(eventName, { e: e });
+    },
+
+    /**
+     * @private
+     * @return {Boolean} If false, some event listener issued to stop processing
+     */
+    _triggerWithResult: function(eventName, target, e, transform) {
+      return (
+          this.triggerWithResult('object:' + eventName, { target: target, e: e, transform: transform }) !== false
+          && target.triggerWithResult(eventName, { e: e, transform: transform }) !== false
+      );
     },
 
     /**
@@ -12253,6 +12320,12 @@ fabric.util.object.extend(fabric.StaticCanvas.prototype, /** @lends fabric.Stati
     minScaleLimit:            0.01,
 
     /**
+     * Maximum allowed scale value of an object
+     * @type Number
+     */
+    maxScaleLimit:            null,
+
+    /**
      * When set to `false`, an object can not be selected for modification (using either point-click-based or group-based selection).
      * But events still fire on it.
      * @type Boolean
@@ -12526,7 +12599,7 @@ fabric.util.object.extend(fabric.StaticCanvas.prototype, /** @lends fabric.Stati
     _updateCacheCanvas: function() {
       if (this.noScaleCache && this.canvas && this.canvas._currentTransform) {
         var action = this.canvas._currentTransform.action;
-        if (action.slice(0, 5) === 'scale') {
+        if (typeof action === 'string' && action.slice(0, 5) === 'scale') {
           return false;
         }
       }
@@ -12651,8 +12724,7 @@ fabric.util.object.extend(fabric.StaticCanvas.prototype, /** @lends fabric.Stati
         if (object[prop] === prototype[prop]) {
           delete object[prop];
         }
-        var isArray = Object.prototype.toString.call(object[prop]) === '[object Array]' &&
-                      Object.prototype.toString.call(prototype[prop]) === '[object Array]';
+        var isArray = Array.isArray(object[prop]) && Array.isArray(prototype[prop]);
 
         // basically a check for [] === []
         if (isArray && object[prop].length === 0 && prototype[prop].length === 0) {
@@ -14088,6 +14160,14 @@ fabric.util.object.extend(fabric.StaticCanvas.prototype, /** @lends fabric.Stati
           return this.minScaleLimit;
         }
       }
+      if (this.maxScaleLimit !== null && Math.abs(value) > this.maxScaleLimit) {
+        if (value < 0) {
+          return -this.maxScaleLimit;
+        }
+        else {
+          return this.maxScaleLimit;
+        }
+      }
       return value;
     },
 
@@ -14703,11 +14783,6 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
         }
 
         if (i === 'mtr' && !this.hasRotatingPoint) {
-          continue;
-        }
-
-        if (this.get('lockUniScaling') &&
-           (i === 'mt' || i === 'mr' || i === 'mb' || i === 'ml')) {
           continue;
         }
 
@@ -16901,7 +16976,7 @@ fabric.util.object.extend(fabric.Object.prototype, /** @lends fabric.Object.prot
         path = [];
       }
 
-      var fromArray = _toString.call(path) === '[object Array]';
+      var fromArray = Array.isArray(path);
 
       this.path = fromArray
         ? path
@@ -21684,7 +21759,6 @@ fabric.Image.filters.BaseFilter.fromObject = function(object, callback) {
    * @see {@link fabric.Text#initialize} for constructor definition
    */
   fabric.Text = fabric.util.createClass(fabric.Object, /** @lends fabric.Text.prototype */ {
-
     /**
      * Properties which when set cause object to change dimensions
      * @type Object
